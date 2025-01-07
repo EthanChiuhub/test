@@ -7,20 +7,22 @@ class UploadManager: NSObject, ObservableObject {
     @Published var currentUploadProgress: Double = 0
     @Published var isUploading = false
     
-    private let uploadQueue = DispatchQueue(label: "com.yourapp.uploadQueue", qos: .background)
+    private let uploadOperationQueue = DispatchQueue(label: "com.yourapp.uploadQueue", qos: .background)
     private var backgroundCompletionHandler: (() -> Void)?
-    private let session: URLSession
-    
-    override init() {
+    private lazy var session: URLSession = {
         let config = URLSessionConfiguration.background(withIdentifier: "com.yourapp.videoUpload")
         config.isDiscretionary = true
         config.sessionSendsLaunchEvents = true
         config.allowsExpensiveNetworkAccess = true
         config.allowsConstrainedNetworkAccess = false
         
-        session = URLSession(configuration: config)
+        return URLSession(configuration: config, 
+                         delegate: self, 
+                         delegateQueue: .main)
+    }()
+    
+    override init() {
         super.init()
-        session.delegate = self
     }
     
     func addToQueue(source: URL, destination: URL) -> Bool {
