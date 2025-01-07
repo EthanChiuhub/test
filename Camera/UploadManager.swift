@@ -6,9 +6,11 @@ class UploadManager: NSObject, ObservableObject {
     @Published private(set) var uploadQueue: [VideoUploadInfo] = []
     @Published var currentUploadProgress: Double = 0
     @Published var isUploading = false
+    @Published var networkError: String?
     
     private let uploadOperationQueue = DispatchQueue(label: "com.yourapp.uploadQueue", qos: .background)
     private var backgroundCompletionHandler: (() -> Void)?
+    public let networkMonitor = NetworkMonitor()
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.background(withIdentifier: "com.yourapp.videoUpload")
         config.isDiscretionary = true
@@ -23,9 +25,19 @@ class UploadManager: NSObject, ObservableObject {
     
     override init() {
         super.init()
+        setupNetworkMonitoring()
+    }
+    
+    private func setupNetworkMonitoring() {
+        networkMonitor.startMonitoring()
     }
     
     func addToQueue(source: URL, destination: URL) -> Bool {
+        guard networkMonitor.isConnected else {
+            networkError = "無網路連線，請檢查網路設定"
+            return false
+        }
+        
         // 檢查是否已經在佇列中
         if uploadQueue.contains(where: { $0.sourceURL == source }) {
             return false
@@ -47,6 +59,14 @@ class UploadManager: NSObject, ObservableObject {
     }
     
     private func processNextUpload() {
+        guard networkMonitor.isConnected else {
+            DispatchQueue.main.async {
+                self.networkError = "網路連線中斷，等待重新連線"
+                self.isUploading = false
+            }
+            return
+        }
+        
         guard let uploadIndex = uploadQueue.firstIndex(where: { $0.status == .notStarted }) else {
             DispatchQueue.main.async {
                 self.isUploading = false
@@ -64,6 +84,13 @@ class UploadManager: NSObject, ObservableObject {
     }
     
     private func startUpload(uploadInfo: VideoUploadInfo, at index: Int) {
+        guard networkMonitor.isConnected else {
+            handleUploadError(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無網路連線"]), 
+                            for: uploadInfo, 
+                            at: index)
+            return
+        }
+        
         // 建立上傳請求
         var request = URLRequest(url: URL(string: "YOUR_UPLOAD_API_ENDPOINT")!)
         request.httpMethod = "POST"

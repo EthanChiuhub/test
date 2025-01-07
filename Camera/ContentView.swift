@@ -103,6 +103,18 @@ struct ContentView: View {
                     // ... 現有的錄影按鈕 ...
                 }
             }
+            
+            // 顯示網路錯誤
+            if let networkError = uploadManager.networkError {
+                VStack {
+                    Text(networkError)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .cornerRadius(10)
+                }
+                .padding()
+            }
         }
         .onAppear {
             cameraManager.session.startRunning()
@@ -125,6 +137,12 @@ struct ContentView: View {
     }
     
     private func uploadVideo(url: URL) {
+        // 上傳前檢查網路狀態
+        if !uploadManager.networkMonitor.isConnected {
+            // 可以選擇顯示警告或將影片加入等待佇列
+            return
+        }
+        
         // 複製影片到 App 的永久儲存空間
         let fileManager = FileManager.default
         let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
