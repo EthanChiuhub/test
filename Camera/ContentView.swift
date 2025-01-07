@@ -117,7 +117,10 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            cameraManager.session.startRunning()
+            cameraManager.startSession()
+        }
+        .onDisappear {
+            cameraManager.stopSession()
         }
         .alert("錯誤", isPresented: .constant(cameraManager.error != nil)) {
             Button("確定", role: .cancel) {}
